@@ -36,7 +36,7 @@ export const initTelegramWebApp = () => {
 }
 
 export const getTelegramViewportHeight = (): number => {
-  if (typeof window === 'undefined') return window.innerHeight
+  if (typeof window === 'undefined') return 0
   
   // В Telegram WebView используем визуальную высоту
   if (isTelegramWebView() && window.visualViewport) {

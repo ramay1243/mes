@@ -41,3 +41,7 @@ dev.db
 dev.db-journal
 *.db
 
+# Uploads
+public/uploads/*
+!public/uploads/.gitkeep
+

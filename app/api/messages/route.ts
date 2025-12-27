@@ -5,7 +5,9 @@ import { z } from 'zod'
 
 const messageSchema = z.object({
   text: z.string().min(1, 'Сообщение не может быть пустым'),
-  receiverId: z.string().optional()
+  receiverId: z.string(),
+  mediaUrl: z.string().optional(),
+  mediaType: z.enum(['image', 'video']).optional()
 })
 
 export async function GET(request: NextRequest) {
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json()
-    const { text, receiverId } = messageSchema.parse(body)
+    const { text, receiverId, mediaUrl, mediaType } = messageSchema.parse(body)
     
     // Проверяем, что receiverId указан
     if (!receiverId) {
@@ -124,7 +126,9 @@ export async function POST(request: NextRequest) {
       data: {
         text,
         senderId: user.id,
-        receiverId: receiverId
+        receiverId: receiverId,
+        mediaUrl: mediaUrl || null,
+        mediaType: mediaType || null
       },
       include: {
         sender: {

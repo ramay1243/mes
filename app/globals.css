@@ -81,44 +81,43 @@ html.telegram-webview {
   padding: 0 !important;
 }
 
-  /* Улучшаем адаптивность для Telegram */
-  .telegram-webview .chat-container {
-    height: 100vh !important;
-    height: 100dvh !important;
-    height: calc(var(--vh, 1vh) * 100) !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-  }
-  
-  .telegram-webview .messages-container {
-    max-height: calc(100vh - 180px) !important;
-    max-height: calc(100dvh - 180px) !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  
-  .telegram-webview .message-input-container {
-    position: relative !important;
-    bottom: auto !important;
-    z-index: 100 !important;
-    flex-shrink: 0 !important;
-  }
-  
-  /* Улучшаем размеры элементов для Telegram */
-  .telegram-webview input,
-  .telegram-webview textarea {
-    font-size: 16px !important;
-    -webkit-appearance: none !important;
-    appearance: none !important;
-  }
-  
-  /* Убираем лишние отступы в Telegram */
-  .telegram-webview * {
-    -webkit-tap-highlight-color: transparent !important;
-  }
+/* Улучшаем адаптивность для Telegram */
+.telegram-webview .chat-container {
+  height: 100vh !important;
+  height: 100dvh !important;
+  height: calc(var(--vh, 1vh) * 100) !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+.telegram-webview .messages-container {
+  max-height: calc(100vh - 180px) !important;
+  max-height: calc(100dvh - 180px) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.telegram-webview .message-input-container {
+  position: relative !important;
+  bottom: auto !important;
+  z-index: 100 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Улучшаем размеры элементов для Telegram */
+.telegram-webview input,
+.telegram-webview textarea {
+  font-size: 16px !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Убираем лишние отступы в Telegram */
+.telegram-webview * {
+  -webkit-tap-highlight-color: transparent !important;
 }
 
 @media (max-width: 768px) {

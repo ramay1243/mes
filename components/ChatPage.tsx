@@ -18,6 +18,8 @@ interface Message {
   text: string
   senderId: string
   receiverId: string | null
+  mediaUrl?: string | null
+  mediaType?: string | null
   createdAt: string
   sender: User
   receiver: User | null
@@ -38,8 +40,10 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   const [userName, setUserName] = useState(user.name || '')
   const [showSidebar, setShowSidebar] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const selectedUserRef = useRef<User | null>(null)
   
   // Синхронизируем ref с state
@@ -353,6 +357,54 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     inputRef.current?.focus()
   }
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedUser) return
+
+    const isImage = file.type.startsWith('image/')
+    const isVideo = file.type.startsWith('video/')
+
+    if (!isImage && !isVideo) {
+      alert('Поддерживаются только изображения и видео')
+      return
+    }
+
+    setUploading(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const uploadResponse = await axios.post('/api/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+
+      const { url, type } = uploadResponse.data
+
+      // Отправляем сообщение с медиа
+      const messageText = newMessage.trim() || (isImage ? '📷 Фото' : '🎥 Видео')
+      
+      await axios.post('/api/messages', {
+        text: messageText,
+        receiverId: selectedUser.id,
+        mediaUrl: url,
+        mediaType: type
+      })
+
+      setNewMessage('')
+      await loadMessages()
+      scrollToBottom()
+    } catch (error: any) {
+      console.error('Error uploading file:', error)
+      alert(`Ошибка при загрузке файла: ${error?.response?.data?.error || error?.message}`)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
   const handleDeleteChat = async (userId: string) => {
     if (!confirm('Удалить все сообщения с этим пользователем?')) {
       return
@@ -605,7 +657,31 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                             : 'bg-white text-gray-800 rounded-bl-none'
                         }`}
                       >
-                        <div className="break-words text-sm md:text-base leading-relaxed whitespace-pre-wrap">{message.text}</div>
+                        {/* Медиа контент */}
+                        {message.mediaUrl && (
+                          <div className="mb-2 rounded-lg overflow-hidden">
+                            {message.mediaType === 'image' ? (
+                              <img
+                                src={message.mediaUrl}
+                                alt="Фото"
+                                className="max-w-full h-auto rounded-lg cursor-pointer"
+                                onClick={() => window.open(message.mediaUrl!, '_blank')}
+                              />
+                            ) : message.mediaType === 'video' ? (
+                              <video
+                                src={message.mediaUrl}
+                                controls
+                                className="max-w-full h-auto rounded-lg"
+                              >
+                                Ваш браузер не поддерживает видео.
+                              </video>
+                            ) : null}
+                          </div>
+                        )}
+                        {/* Текст сообщения */}
+                        {message.text && (
+                          <div className="break-words text-sm md:text-base leading-relaxed whitespace-pre-wrap">{message.text}</div>
+                        )}
                         <div className={`text-xs mt-0.5 ${isOwn ? 'text-gray-500' : 'text-gray-400'} text-right`}>
                           {formatTime(message.createdAt)}
                         </div>
@@ -625,6 +701,32 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             {/* Форма отправки сообщения */}
             <form onSubmit={sendMessage} className="bg-[#f0f2f5] p-2 md:p-4 relative border-t border-gray-200 safe-area-inset-bottom message-input-container">
               <div className="flex gap-2 items-end">
+                {/* Кнопка выбора файла */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || !selectedUser}
+                  className="p-2.5 md:p-3 bg-white text-[#075e54] rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px] md:min-w-[50px] flex-shrink-0"
+                  aria-label="Прикрепить файл"
+                >
+                  {uploading ? (
+                    <svg className="w-5 h-5 md:w-6 md:h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
                 <div className="relative flex-1 min-w-0">
                   <input
                     ref={inputRef}

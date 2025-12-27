@@ -40,17 +40,17 @@ export default function EmojiPicker({ onEmojiSelect }: EmojiPickerProps) {
   }
 
   return (
-    <div ref={pickerRef} className="relative">
+    <div ref={pickerRef} className="relative inline-block">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-2xl hover:bg-gray-100 rounded-full transition-colors focus:outline-none"
+        className="p-1.5 md:p-2 text-xl md:text-2xl hover:bg-gray-100 active:bg-gray-200 rounded-full transition-colors focus:outline-none flex items-center justify-center min-w-[32px] md:min-w-[36px] min-h-[32px] md:min-h-[36px]"
         aria-label="Открыть эмодзи"
       >
         😊
       </button>
       {isOpen && (
-        <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-xl w-80 h-80 flex flex-col z-50">
+        <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-2xl w-[280px] md:w-[360px] h-[280px] md:h-[360px] flex flex-col z-[100] max-w-[calc(100vw-2rem)]">
           {/* Заголовок */}
           <div className="flex items-center justify-between p-2 border-b border-gray-200">
             <div className="flex gap-1">

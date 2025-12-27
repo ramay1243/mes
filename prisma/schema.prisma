@@ -29,6 +29,8 @@ model Message {
   text      String
   senderId  String
   receiverId String?
+  mediaUrl  String?
+  mediaType String?  // 'image', 'video'
   createdAt DateTime @default(now())
   
   sender    User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
