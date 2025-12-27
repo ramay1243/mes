@@ -49,9 +49,16 @@ export async function POST(request: NextRequest) {
     // Отправляем SMS (в разработке просто логируем)
     await sendVerificationCode(normalizedPhone, code)
     
+    // В режиме разработки/тестирования возвращаем код в ответе
+    // ВНИМАНИЕ: В продакшене убрать code из ответа!
+    const isDevelopment = process.env.NODE_ENV !== 'production'
+    
     return NextResponse.json({ 
       success: true,
-      message: 'Код отправлен на ваш номер телефона'
+      message: isDevelopment 
+        ? `Код отправлен! Проверьте логи Vercel. Код: ${code}` 
+        : 'Код отправлен на ваш номер телефона',
+      ...(isDevelopment && { code }) // Только в разработке
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

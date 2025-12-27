@@ -30,7 +30,12 @@ export default function AuthPage({ onAuthSuccess }: AuthPageProps) {
       const data = await response.json()
 
       if (response.ok) {
-        setMessage('Код отправлен! Проверьте консоль браузера (в режиме разработки)')
+        if (data.code) {
+          // Если код пришел в ответе (режим разработки)
+          setMessage(`Код отправлен! Ваш код: ${data.code}`)
+        } else {
+          setMessage('Код отправлен! Проверьте логи Vercel (Functions → Logs)')
+        }
         setStep('code')
       } else {
         setError(data.error || 'Ошибка при отправке кода')
