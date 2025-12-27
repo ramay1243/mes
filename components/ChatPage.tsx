@@ -46,6 +46,95 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     selectedUserRef.current = selectedUser
   }, [selectedUser])
 
+  // Предотвращаем поднятие экрана при открытии клавиатуры на мобильных
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleResize = () => {
+      // На мобильных устройствах при открытии клавиатуры viewport меняется
+      // Мы фиксируем высоту, чтобы экран не поднимался
+      const viewportHeight = window.visualViewport?.height || window.innerHeight
+      const root = document.documentElement
+      
+      if (window.innerWidth <= 768) {
+        // Используем visualViewport для более точного определения
+        if (window.visualViewport) {
+          root.style.setProperty('--vh', `${window.visualViewport.height * 0.01}px`)
+        } else {
+          root.style.setProperty('--vh', `${viewportHeight * 0.01}px`)
+        }
+      }
+    }
+
+    // Обработка изменения размера viewport (открытие/закрытие клавиатуры)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize)
+      window.visualViewport.addEventListener('scroll', (e) => {
+        // Предотвращаем скролл viewport при открытии клавиатуры
+        if (window.innerWidth <= 768) {
+          window.scrollTo(0, 0)
+        }
+      })
+    } else {
+      window.addEventListener('resize', handleResize)
+    }
+
+    // Предотвращаем скролл страницы при фокусе на input
+    const handleFocus = (e: FocusEvent) => {
+      if (window.innerWidth <= 768) {
+        const target = e.target as HTMLElement
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+          // Небольшая задержка для предотвращения автоматического скролла
+          setTimeout(() => {
+            window.scrollTo(0, 0)
+            document.documentElement.scrollTop = 0
+            document.body.scrollTop = 0
+            if (window.visualViewport) {
+              window.visualViewport.scrollTop = 0
+            }
+          }, 100)
+        }
+      }
+    }
+
+    const handleBlur = () => {
+      if (window.innerWidth <= 768) {
+        window.scrollTo(0, 0)
+        document.documentElement.scrollTop = 0
+        document.body.scrollTop = 0
+      }
+    }
+
+    // Предотвращаем скролл страницы при touch-событиях
+    const preventScroll = (e: TouchEvent) => {
+      if (window.innerWidth <= 768 && document.activeElement?.tagName === 'INPUT') {
+        // Разрешаем скролл только внутри области сообщений
+        const target = e.target as HTMLElement
+        if (!target.closest('.messages-container')) {
+          e.preventDefault()
+        }
+      }
+    }
+
+    document.addEventListener('focusin', handleFocus)
+    document.addEventListener('focusout', handleBlur)
+    document.addEventListener('touchmove', preventScroll, { passive: false })
+
+    // Инициализация
+    handleResize()
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize)
+      } else {
+        window.removeEventListener('resize', handleResize)
+      }
+      document.removeEventListener('focusin', handleFocus)
+      document.removeEventListener('focusout', handleBlur)
+      document.removeEventListener('touchmove', preventScroll)
+    }
+  }, [])
+
   useEffect(() => {
     // Обновляем сообщения каждые 2 секунды
     const interval = setInterval(() => {
@@ -277,7 +366,14 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   }
 
   return (
-    <div className="flex h-screen bg-[#e5ddd5] overflow-hidden relative w-full">
+    <div 
+      className="flex bg-[#e5ddd5] overflow-hidden relative w-full chat-container"
+      style={{
+        height: typeof window !== 'undefined' && window.innerWidth <= 768 
+          ? 'calc(var(--vh, 1vh) * 100)' 
+          : '100vh'
+      }}
+    >
       {/* Боковая панель с пользователями */}
       <div className={`${showSidebar || (!selectedUser && typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex' : 'hidden'} md:flex w-full md:w-80 bg-white flex flex-col fixed md:relative z-40 h-full shadow-xl md:shadow-none inset-0 md:inset-auto`}>
         {/* Заголовок с профилем */}
@@ -457,7 +553,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             </div>
 
             {/* Сообщения */}
-            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-1 bg-[#e5ddd5] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJtIDAgMCBoIDQwIHYgNDAgaCAtNDAgeiIgZmlsbD0iI2U1ZGRkNSIvPjxwYXRoIGQ9Ik0gMCAwIEwgNDAgNDAgTSA0MCAwIEwgMCA0MCIgc3Ryb2tlPSIjZGRkZGRkIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] min-h-0 pb-safe">
+            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-1 bg-[#e5ddd5] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJtIDAgMCBoIDQwIHYgNDAgaCAtNDAgeiIgZmlsbD0iI2U1ZGRkNSIvPjxwYXRoIGQ9Ik0gMCAwIEwgNDAgNDAgTSA0MCAwIEwgMCA0MCIgc3Ryb2tlPSIjZGRkZGRkIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] min-h-0 pb-safe messages-container">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500 px-4">
                   <div className="text-center">
@@ -504,7 +600,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             </div>
 
             {/* Форма отправки сообщения */}
-            <form onSubmit={sendMessage} className="bg-[#f0f2f5] p-2 md:p-4 relative border-t border-gray-200 safe-area-inset-bottom">
+            <form onSubmit={sendMessage} className="bg-[#f0f2f5] p-2 md:p-4 relative border-t border-gray-200 safe-area-inset-bottom message-input-container">
               <div className="flex gap-2 items-end">
                 <div className="relative flex-1 min-w-0">
                   <input
@@ -515,7 +611,22 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                     placeholder={selectedUser ? `Сообщение для ${selectedUser.name || selectedUser.phone}` : "Введите сообщение"}
                     className="w-full px-4 py-2.5 md:py-3 pr-12 border-0 rounded-full focus:ring-2 focus:ring-[#075e54] focus:outline-none text-gray-900 bg-white text-sm md:text-base"
                     style={{ color: '#111827' }}
-                    onFocus={() => setShowEmojiPicker(false)}
+                    onFocus={(e) => {
+                      setShowEmojiPicker(false)
+                      // Предотвращаем автоматический скролл на мобильных
+                      if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+                        setTimeout(() => {
+                          window.scrollTo(0, 0)
+                          if (window.visualViewport) {
+                            window.visualViewport.scrollTop = 0
+                          }
+                          // Прокручиваем к последнему сообщению после открытия клавиатуры
+                          setTimeout(() => {
+                            scrollToBottom()
+                          }, 300)
+                        }, 50)
+                      }
+                    }}
                   />
                   <div className="absolute right-2 bottom-2">
                     <EmojiPicker onEmojiSelect={handleEmojiSelect} />

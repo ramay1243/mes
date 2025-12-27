@@ -15,6 +15,12 @@ input::placeholder, textarea::placeholder {
   color: #9ca3af !important;
 }
 
+html {
+  height: 100%;
+  height: -webkit-fill-available;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -22,6 +28,14 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
 }
 
 /* Скрываем скроллбар но оставляем функциональность */
@@ -63,6 +77,68 @@ body {
   /* Плавный скролл на iOS */
   * {
     -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Предотвращаем поднятие экрана при открытии клавиатуры */
+  #__next {
+    height: 100%;
+    height: -webkit-fill-available;
+    height: 100dvh;
+    overflow: hidden;
+    position: relative;
+    touch-action: pan-y;
+  }
+  
+  /* Фиксируем контейнер чата */
+  .chat-container {
+    height: 100%;
+    height: -webkit-fill-available;
+    height: 100dvh;
+    height: calc(var(--vh, 1vh) * 100);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  
+  /* Область сообщений с правильным скроллом */
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    min-height: 0;
+    position: relative;
+  }
+  
+  /* Форма ввода сообщения */
+  .message-input-container {
+    position: relative;
+    flex-shrink: 0;
+    background: #f0f2f5;
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 10;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Используем CSS переменную для динамической высоты */
+  :root {
+    --vh: 1vh;
+  }
+  
+  /* Предотвращаем скролл body при открытии клавиатуры */
+  body {
+    position: fixed;
+    width: 100%;
+    overflow: hidden;
+  }
+  
+  /* Улучшаем работу с виртуальной клавиатурой */
+  input:focus,
+  textarea:focus {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
   }
 }
 
