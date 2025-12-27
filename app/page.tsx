@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthPage from '@/components/AuthPage'
 import ChatPage from '@/components/ChatPage'
+import { initTelegramWebApp, isTelegramWebView } from '@/lib/telegram'
 
 export default function Home() {
   const [user, setUser] = useState<any>(null)
@@ -11,6 +12,14 @@ export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
+    // Инициализируем Telegram WebApp если открыто в Telegram
+    if (isTelegramWebView()) {
+      initTelegramWebApp()
+      // Добавляем класс для Telegram WebView
+      document.documentElement.classList.add('telegram-webview')
+      document.body.classList.add('telegram-webview')
+    }
+    
     checkAuth()
   }, [])
 

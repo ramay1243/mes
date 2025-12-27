@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
 import EmojiPicker from './EmojiPicker'
 import SwipeableChatItem from './SwipeableChatItem'
+import { isTelegramWebView, getTelegramViewportHeight } from '@/lib/telegram'
 
 interface User {
   id: string
@@ -50,17 +51,26 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
+    const isTelegram = isTelegramWebView()
+
     const handleResize = () => {
       // На мобильных устройствах при открытии клавиатуры viewport меняется
       // Мы фиксируем высоту, чтобы экран не поднимался
-      const viewportHeight = window.visualViewport?.height || window.innerHeight
       const root = document.documentElement
       
-      if (window.innerWidth <= 768) {
-        // Используем visualViewport для более точного определения
-        if (window.visualViewport) {
+      if (window.innerWidth <= 768 || isTelegram) {
+        // Для Telegram WebView используем специальную обработку
+        if (isTelegram) {
+          const height = getTelegramViewportHeight()
+          root.style.setProperty('--vh', `${height * 0.01}px`)
+          // В Telegram WebView фиксируем высоту более агрессивно
+          document.body.style.height = `${height}px`
+          document.documentElement.style.height = `${height}px`
+        } else if (window.visualViewport) {
+          // Используем visualViewport для более точного определения
           root.style.setProperty('--vh', `${window.visualViewport.height * 0.01}px`)
         } else {
+          const viewportHeight = window.innerHeight
           root.style.setProperty('--vh', `${viewportHeight * 0.01}px`)
         }
       }
@@ -81,7 +91,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
 
     // Предотвращаем скролл страницы при фокусе на input
     const handleFocus = (e: FocusEvent) => {
-      if (window.innerWidth <= 768) {
+      if (window.innerWidth <= 768 || isTelegram) {
         const target = e.target as HTMLElement
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
           // Небольшая задержка для предотвращения автоматического скролла
@@ -89,25 +99,36 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             window.scrollTo(0, 0)
             document.documentElement.scrollTop = 0
             document.body.scrollTop = 0
-            if (window.visualViewport) {
-              window.scrollTo(0, 0)
+            
+            // Для Telegram WebView дополнительная фиксация
+            if (isTelegram) {
+              const height = getTelegramViewportHeight()
+              document.body.style.height = `${height}px`
+              document.documentElement.style.height = `${height}px`
             }
-          }, 100)
+          }, isTelegram ? 50 : 100)
         }
       }
     }
 
     const handleBlur = () => {
-      if (window.innerWidth <= 768) {
+      if (window.innerWidth <= 768 || isTelegram) {
         window.scrollTo(0, 0)
         document.documentElement.scrollTop = 0
         document.body.scrollTop = 0
+        
+        // Для Telegram WebView восстанавливаем высоту
+        if (isTelegram) {
+          const height = getTelegramViewportHeight()
+          document.body.style.height = `${height}px`
+          document.documentElement.style.height = `${height}px`
+        }
       }
     }
 
     // Предотвращаем скролл страницы при touch-событиях
     const preventScroll = (e: TouchEvent) => {
-      if (window.innerWidth <= 768 && document.activeElement?.tagName === 'INPUT') {
+      if ((window.innerWidth <= 768 || isTelegram) && document.activeElement?.tagName === 'INPUT') {
         // Разрешаем скролл только внутри области сообщений
         const target = e.target as HTMLElement
         if (!target.closest('.messages-container')) {
@@ -365,11 +386,13 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
   }
 
+  const isTelegram = typeof window !== 'undefined' && isTelegramWebView()
+  
   return (
     <div 
-      className="flex bg-[#e5ddd5] overflow-hidden relative w-full chat-container"
+      className={`flex bg-[#e5ddd5] overflow-hidden relative w-full chat-container ${isTelegram ? 'telegram-webview' : ''}`}
       style={{
-        height: typeof window !== 'undefined' && window.innerWidth <= 768 
+        height: typeof window !== 'undefined' && (window.innerWidth <= 768 || isTelegram)
           ? 'calc(var(--vh, 1vh) * 100)' 
           : '100vh'
       }}
@@ -613,17 +636,26 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                     style={{ color: '#111827' }}
                     onFocus={(e) => {
                       setShowEmojiPicker(false)
-                      // Предотвращаем автоматический скролл на мобильных
-                      if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+                      // Предотвращаем автоматический скролл на мобильных и в Telegram
+                      const isTelegram = typeof window !== 'undefined' && isTelegramWebView()
+                      if (typeof window !== 'undefined' && (window.innerWidth <= 768 || isTelegram)) {
                         setTimeout(() => {
                           window.scrollTo(0, 0)
                           document.documentElement.scrollTop = 0
                           document.body.scrollTop = 0
+                          
+                          // Для Telegram WebView дополнительная фиксация
+                          if (isTelegram) {
+                            const height = getTelegramViewportHeight()
+                            document.body.style.height = `${height}px`
+                            document.documentElement.style.height = `${height}px`
+                          }
+                          
                           // Прокручиваем к последнему сообщению после открытия клавиатуры
                           setTimeout(() => {
                             scrollToBottom()
                           }, 300)
-                        }, 50)
+                        }, isTelegram ? 30 : 50)
                       }
                     }}
                   />

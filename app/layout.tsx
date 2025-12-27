@@ -25,6 +25,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
+      <head>
+        {/* Telegram WebApp API */}
+        <script src="https://telegram.org/js/telegram-web-app.js" async />
+      </head>
       <body className={inter.className}>{children}</body>
     </html>
   )
