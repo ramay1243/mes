@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
 import EmojiPicker from './EmojiPicker'
 import SwipeableChatItem from './SwipeableChatItem'
+import ImageMessage from './ImageMessage'
+import VideoMessage from './VideoMessage'
 import { isTelegramWebView, getTelegramViewportHeight } from '@/lib/telegram'
 
 interface User {
@@ -651,40 +653,53 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                         </div>
                       )}
                       <div
-                        className={`max-w-[80%] sm:max-w-[75%] md:max-w-md px-3 py-1.5 md:px-4 md:py-2 rounded-lg shadow-sm ${
+                        className={`max-w-[80%] sm:max-w-[75%] md:max-w-md rounded-lg shadow-sm relative ${
+                          message.mediaUrl && !message.text
+                            ? 'p-0' // Без padding если только медиа
+                            : 'px-3 py-1.5 md:px-4 md:py-2' // С padding если есть текст
+                        } ${
                           isOwn
-                            ? 'bg-[#dcf8c6] text-gray-800 rounded-br-none'
-                            : 'bg-white text-gray-800 rounded-bl-none'
+                            ? message.mediaUrl && !message.text
+                              ? 'bg-transparent' // Прозрачный фон для медиа без текста
+                              : 'bg-[#dcf8c6] text-gray-800 rounded-br-none'
+                            : message.mediaUrl && !message.text
+                              ? 'bg-transparent' // Прозрачный фон для медиа без текста
+                              : 'bg-white text-gray-800 rounded-bl-none'
                         }`}
                       >
                         {/* Медиа контент */}
                         {message.mediaUrl && (
-                          <div className="mb-2 rounded-lg overflow-hidden">
+                          <div className={message.text ? 'mb-2' : 'relative'}>
                             {message.mediaType === 'image' ? (
-                              <img
-                                src={message.mediaUrl}
-                                alt="Фото"
-                                className="max-w-full h-auto rounded-lg cursor-pointer"
-                                onClick={() => window.open(message.mediaUrl!, '_blank')}
+                              <ImageMessage 
+                                src={message.mediaUrl} 
+                                alt={message.text || 'Фото'}
+                                isOwn={isOwn}
                               />
                             ) : message.mediaType === 'video' ? (
-                              <video
+                              <VideoMessage 
                                 src={message.mediaUrl}
-                                controls
-                                className="max-w-full h-auto rounded-lg"
-                              >
-                                Ваш браузер не поддерживает видео.
-                              </video>
+                                isOwn={isOwn}
+                              />
                             ) : null}
+                            {/* Время для медиа без текста - накладывается поверх */}
+                            {!message.text && (
+                              <div className={`absolute bottom-2 right-2 text-[10px] md:text-xs bg-black bg-opacity-70 text-white px-1.5 py-0.5 md:px-2 md:py-1 rounded-md backdrop-blur-sm font-medium shadow-lg`}>
+                                {formatTime(message.createdAt)}
+                              </div>
+                            )}
                           </div>
                         )}
                         {/* Текст сообщения */}
                         {message.text && (
                           <div className="break-words text-sm md:text-base leading-relaxed whitespace-pre-wrap">{message.text}</div>
                         )}
-                        <div className={`text-xs mt-0.5 ${isOwn ? 'text-gray-500' : 'text-gray-400'} text-right`}>
-                          {formatTime(message.createdAt)}
-                        </div>
+                        {/* Время для текстовых сообщений или сообщений с текстом и медиа */}
+                        {(!message.mediaUrl || message.text) && (
+                          <div className={`text-xs mt-1 ${isOwn ? 'text-gray-500' : 'text-gray-400'} text-right`}>
+                            {formatTime(message.createdAt)}
+                          </div>
+                        )}
                       </div>
                       {isOwn && (
                         <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-[#075e54] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
