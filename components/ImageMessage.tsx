@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface ImageMessageProps {
   src: string
@@ -13,8 +13,71 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Проверяем, загружено ли изображение уже (из кэша) и устанавливаем таймаут
+  useEffect(() => {
+    // Сбрасываем состояние при изменении src
+    setIsLoading(true)
+    setImageError(false)
+    setImageDimensions(null)
+
+    // Очищаем предыдущий таймаут
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+
+    // Проверяем кэш после того, как элемент отрендерится
+    const checkCache = () => {
+      if (imgRef.current) {
+        const img = imgRef.current
+        
+        // Если изображение уже загружено (из кэша)
+        if (img.complete && img.naturalHeight !== 0) {
+          setIsLoading(false)
+          setImageDimensions({
+            width: img.naturalWidth,
+            height: img.naturalHeight
+          })
+          return true
+        }
+      }
+      return false
+    }
+
+    // Проверяем через небольшую задержку, чтобы imgRef успел установиться
+    const timeoutId = setTimeout(() => {
+      if (!checkCache()) {
+        // Таймаут на случай, если изображение не загрузится за 10 секунд
+        timeoutRef.current = setTimeout(() => {
+          setIsLoading((prev) => {
+            if (prev) {
+              console.warn('Image loading timeout:', src)
+              setImageError(true)
+              return false
+            }
+            return prev
+          })
+        }, 10000)
+      }
+    }, 50)
+
+    return () => {
+      clearTimeout(timeoutId)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+    }
+  }, [src])
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
     setIsLoading(false)
     const img = e.currentTarget
     setImageDimensions({
@@ -24,6 +87,10 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
   }
 
   const handleImageError = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
     setIsLoading(false)
     setImageError(true)
   }
@@ -48,6 +115,17 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
           </div>
         )}
         <img
+          ref={(node) => {
+            imgRef.current = node
+            // Проверяем сразу после установки ref, если изображение уже загружено
+            if (node && node.complete && node.naturalHeight !== 0 && isLoading) {
+              setIsLoading(false)
+              setImageDimensions({
+                width: node.naturalWidth,
+                height: node.naturalHeight
+              })
+            }
+          }}
           src={src}
           alt={alt}
           onLoad={handleImageLoad}
@@ -69,6 +147,7 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
           }}
           onClick={() => setShowFullscreen(true)}
           loading="lazy"
+          decoding="async"
         />
         {/* Иконка увеличения при наведении (только на десктопе) */}
         <div className="hidden md:block absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black bg-opacity-50 rounded-full p-1.5 pointer-events-none">
