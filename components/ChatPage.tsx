@@ -374,12 +374,26 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     setUploading(true)
 
     try {
+      console.log('📤 Starting file upload:', { 
+        fileName: file.name, 
+        fileSize: file.size, 
+        fileType: file.type,
+        selectedUserId: selectedUser.id 
+      })
+
       const formData = new FormData()
       formData.append('file', file)
 
       const uploadResponse = await axios.post('/api/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000 // 60 секунд таймаут
       })
+
+      console.log('✅ Upload response:', uploadResponse.data)
+
+      if (!uploadResponse.data || !uploadResponse.data.url) {
+        throw new Error('Сервер не вернул URL файла')
+      }
 
       const { url, type } = uploadResponse.data
       
@@ -399,8 +413,30 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
       await loadMessages()
       scrollToBottom()
     } catch (error: any) {
-      console.error('Error uploading file:', error)
-      alert(`Ошибка при загрузке файла: ${error?.response?.data?.error || error?.message}`)
+      console.error('❌ Error uploading file:', {
+        error,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        message: error?.message
+      })
+      
+      let errorMessage = 'Ошибка при загрузке файла'
+      
+      if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error
+      } else if (error?.response?.status === 401) {
+        errorMessage = 'Не авторизован. Пожалуйста, войдите снова.'
+      } else if (error?.response?.status === 400) {
+        errorMessage = error?.response?.data?.error || 'Неверный формат файла'
+      } else if (error?.response?.status === 413) {
+        errorMessage = 'Файл слишком большой'
+      } else if (error?.code === 'ECONNABORTED') {
+        errorMessage = 'Превышено время ожидания. Попробуйте еще раз.'
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
+      alert(`Ошибка при загрузке файла: ${errorMessage}`)
     } finally {
       setUploading(false)
       if (fileInputRef.current) {

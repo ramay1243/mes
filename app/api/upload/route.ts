@@ -58,28 +58,51 @@ export async function POST(request: NextRequest) {
 
     // Проверяем, есть ли токен для Vercel Blob (продакшен)
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      // Используем Vercel Blob Storage
-      const blob = await put(fileName, file, {
-        access: 'public',
-        contentType: file.type,
-      })
-      fileUrl = blob.url
+      try {
+        // Используем Vercel Blob Storage
+        const blob = await put(fileName, file, {
+          access: 'public',
+          contentType: file.type,
+        })
+        fileUrl = blob.url
+        console.log('✅ File uploaded to Vercel Blob:', fileUrl)
+      } catch (blobError: any) {
+        console.error('❌ Vercel Blob upload error:', blobError)
+        throw new Error(`Ошибка загрузки в Vercel Blob: ${blobError?.message || 'Неизвестная ошибка'}`)
+      }
     } else {
       // Локальная разработка - сохраняем в public/uploads
-      const uploadsDir = join(process.cwd(), 'public', 'uploads')
-      if (!existsSync(uploadsDir)) {
-        await mkdir(uploadsDir, { recursive: true })
+      try {
+        const uploadsDir = join(process.cwd(), 'public', 'uploads')
+        if (!existsSync(uploadsDir)) {
+          await mkdir(uploadsDir, { recursive: true })
+        }
+
+        const localFileName = `${timestamp}-${randomStr}.${fileExtension}`
+        const filePath = join(uploadsDir, localFileName)
+
+        const bytes = await file.arrayBuffer()
+        const buffer = Buffer.from(bytes)
+        await writeFile(filePath, buffer)
+
+        fileUrl = `/uploads/${localFileName}`
+        console.log('✅ File saved locally:', fileUrl)
+      } catch (localError: any) {
+        console.error('❌ Local file save error:', localError)
+        throw new Error(`Ошибка сохранения файла: ${localError?.message || 'Неизвестная ошибка'}`)
       }
-
-      const localFileName = `${timestamp}-${randomStr}.${fileExtension}`
-      const filePath = join(uploadsDir, localFileName)
-
-      const bytes = await file.arrayBuffer()
-      const buffer = Buffer.from(bytes)
-      await writeFile(filePath, buffer)
-
-      fileUrl = `/uploads/${localFileName}`
     }
+
+    if (!fileUrl) {
+      throw new Error('Не удалось получить URL загруженного файла')
+    }
+
+    console.log('📤 Upload successful:', {
+      url: fileUrl,
+      type: isImage ? 'image' : 'video',
+      size: file.size,
+      name: file.name
+    })
 
     return NextResponse.json({
       url: fileUrl,
@@ -87,10 +110,28 @@ export async function POST(request: NextRequest) {
       size: file.size,
       name: file.name
     })
-  } catch (error) {
-    console.error('Error uploading file:', error)
+  } catch (error: any) {
+    console.error('Error uploading file:', {
+      error,
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name
+    })
+    
+    let errorMessage = 'Ошибка при загрузке файла'
+    
+    if (error?.message?.includes('BLOB_READ_WRITE_TOKEN')) {
+      errorMessage = 'Ошибка конфигурации хранилища. Проверьте настройки Vercel Blob.'
+    } else if (error?.message?.includes('ENOENT')) {
+      errorMessage = 'Ошибка создания директории для файлов'
+    } else if (error?.message?.includes('EACCES')) {
+      errorMessage = 'Нет доступа для записи файла'
+    } else if (error?.message) {
+      errorMessage = error.message
+    }
+    
     return NextResponse.json(
-      { error: 'Ошибка при загрузке файла' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

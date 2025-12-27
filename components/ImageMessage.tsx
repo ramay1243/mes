@@ -107,11 +107,15 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
     })
   }
 
-  const handleImageError = () => {
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
       timeoutRef.current = null
     }
+    console.error('❌ Image load error:', {
+      src: imageUrl,
+      originalSrc: src
+    })
     setIsLoading(false)
     setImageError(true)
   }
@@ -140,7 +144,10 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
           src={imageUrl}
           alt={alt}
           onLoad={handleImageLoad}
-          onError={handleImageError}
+          onError={(e) => {
+            console.error('❌ Image error event:', e)
+            handleImageError(e)
+          }}
           className={`rounded-lg cursor-pointer transition-all duration-200 hover:opacity-90 ${
             isLoading ? 'opacity-0' : 'opacity-100'
           }`}
