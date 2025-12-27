@@ -220,7 +220,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
           id: m.id,
           from: m.senderId,
           to: m.receiverId,
-          text: m.text.substring(0, 20)
+          text: m.text?.substring(0, 20) || '(медиа)'
         }))
       })
       

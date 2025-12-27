@@ -129,11 +129,11 @@ export async function POST(request: NextRequest) {
     
     const message = await prisma.message.create({
       data: {
-        text: text || null,
+        text: text ?? null,
         senderId: user.id,
         receiverId: receiverId,
-        mediaUrl: mediaUrl || null,
-        mediaType: mediaType || null
+        mediaUrl: mediaUrl ?? null,
+        mediaType: mediaType ?? null
       },
       include: {
         sender: {

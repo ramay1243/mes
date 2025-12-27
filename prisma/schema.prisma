@@ -26,11 +26,11 @@ model User {
 
 model Message {
   id        String   @id @default(cuid())
-  text      String
+  text      String?  // Опциональное, так как может быть только медиа
   senderId  String
   receiverId String?
-  mediaUrl  String?
-  mediaType String?  // 'image', 'video'
+  mediaUrl  String?  // URL для фото/видео
+  mediaType String?  // Тип медиа (image, video)
   createdAt DateTime @default(now())
   
   sender    User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
