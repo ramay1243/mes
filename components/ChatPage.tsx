@@ -90,7 +90,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             document.documentElement.scrollTop = 0
             document.body.scrollTop = 0
             if (window.visualViewport) {
-              window.visualViewport.scrollTop = 0
+              window.scrollTo(0, 0)
             }
           }, 100)
         }
@@ -617,9 +617,8 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                       if (typeof window !== 'undefined' && window.innerWidth <= 768) {
                         setTimeout(() => {
                           window.scrollTo(0, 0)
-                          if (window.visualViewport) {
-                            window.visualViewport.scrollTop = 0
-                          }
+                          document.documentElement.scrollTop = 0
+                          document.body.scrollTop = 0
                           // Прокручиваем к последнему сообщению после открытия клавиатуры
                           setTimeout(() => {
                             scrollToBottom()
