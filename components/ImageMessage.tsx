@@ -47,25 +47,37 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
       return false
     }
 
-    // Проверяем через небольшую задержку, чтобы imgRef успел установиться
-    const timeoutId = setTimeout(() => {
-      if (!checkCache()) {
-        // Таймаут на случай, если изображение не загрузится за 10 секунд
-        timeoutRef.current = setTimeout(() => {
-          setIsLoading((prev) => {
-            if (prev) {
-              console.warn('Image loading timeout:', src)
-              setImageError(true)
-              return false
-            }
-            return prev
-          })
-        }, 10000)
+    // Проверяем несколько раз с небольшими интервалами
+    const checkInterval = setInterval(() => {
+      if (checkCache()) {
+        clearInterval(checkInterval)
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+          timeoutRef.current = null
+        }
       }
     }, 50)
 
+    // Останавливаем проверку через 500ms (достаточно для проверки кэша)
+    const stopCheckTimeout = setTimeout(() => {
+      clearInterval(checkInterval)
+    }, 500)
+
+    // Таймаут на случай, если изображение не загрузится за 10 секунд
+    timeoutRef.current = setTimeout(() => {
+      setIsLoading((prev) => {
+        if (prev) {
+          console.warn('Image loading timeout:', src)
+          setImageError(true)
+          return false
+        }
+        return prev
+      })
+    }, 10000)
+
     return () => {
-      clearTimeout(timeoutId)
+      clearInterval(checkInterval)
+      clearTimeout(stopCheckTimeout)
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
@@ -115,17 +127,7 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
           </div>
         )}
         <img
-          ref={(node) => {
-            imgRef.current = node
-            // Проверяем сразу после установки ref, если изображение уже загружено
-            if (node && node.complete && node.naturalHeight !== 0 && isLoading) {
-              setIsLoading(false)
-              setImageDimensions({
-                width: node.naturalWidth,
-                height: node.naturalHeight
-              })
-            }
-          }}
+          ref={imgRef}
           src={src}
           alt={alt}
           onLoad={handleImageLoad}
