@@ -345,7 +345,13 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
         </div>
 
         {/* Список чатов */}
-        <div className="flex-1 overflow-y-auto bg-white">
+        <div 
+          className="flex-1 overflow-y-auto bg-white"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y'
+          }}
+        >
           {filteredUsers.length > 0 ? (
             <>
               {!userSearchQuery && (
@@ -369,6 +375,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                       selectedUser?.id === u.id ? 'bg-[#f0f2f5]' : ''
                     }`}
                     onClick={() => {
+                      // Клик обрабатывается только если не было свайпа (проверка в SwipeableChatItem)
                       console.log('✅ User selected:', { id: u.id, name: u.name || u.phone })
                       setSelectedUser(u)
                       setShowSidebar(false) // Закрываем сайдбар на мобильных
@@ -376,15 +383,15 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                       setMessages([]) // Очищаем сообщения при смене пользователя
                     }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-[#075e54] flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                    <div className="flex items-center gap-2.5 md:gap-3">
+                      <div className="w-11 h-11 md:w-12 md:h-12 rounded-full bg-[#075e54] flex items-center justify-center text-white font-semibold text-base md:text-lg flex-shrink-0">
                         {(u.name || u.phone).charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-800 truncate">
+                        <div className="font-medium text-gray-800 truncate text-sm md:text-base">
                           {u.name || u.phone}
                         </div>
-                        <div className="text-sm text-gray-500 truncate">{u.phone}</div>
+                        <div className="text-xs md:text-sm text-gray-500 truncate">{u.phone}</div>
                       </div>
                     </div>
                   </div>
