@@ -104,6 +104,22 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // КРИТИЧЕСКАЯ ПРОВЕРКА: убеждаемся что не отправляем самому себе
+    if (receiverId === user.id) {
+      return NextResponse.json(
+        { error: 'Нельзя отправить сообщение самому себе' },
+        { status: 400 }
+      )
+    }
+    
+    console.log('📤 Creating message:', {
+      senderId: user.id,
+      senderPhone: user.phone,
+      receiverId: receiverId,
+      receiverPhone: receiver.phone,
+      text: text.substring(0, 50)
+    })
+    
     const message = await prisma.message.create({
       data: {
         text,
@@ -128,6 +144,25 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+    })
+    
+    // ФИНАЛЬНАЯ ПРОВЕРКА: убеждаемся что сообщение создано правильно
+    if (message.receiverId !== receiverId) {
+      console.error('❌ CRITICAL: Message created with wrong receiverId!', {
+        expected: receiverId,
+        actual: message.receiverId,
+        messageId: message.id
+      })
+      return NextResponse.json(
+        { error: 'Ошибка: сообщение создано с неверным получателем' },
+        { status: 500 }
+      )
+    }
+    
+    console.log('✅ Message created successfully:', {
+      messageId: message.id,
+      to: message.receiver?.phone,
+      receiverId: message.receiverId
     })
     
     return NextResponse.json({ message })

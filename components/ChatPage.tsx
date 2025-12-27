@@ -38,6 +38,12 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const selectedUserRef = useRef<User | null>(null)
+  
+  // Синхронизируем ref с state
+  useEffect(() => {
+    selectedUserRef.current = selectedUser
+  }, [selectedUser])
 
   useEffect(() => {
     // Обновляем сообщения каждые 2 секунды
@@ -147,24 +153,47 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newMessage.trim() || !selectedUser) {
-      console.error('Cannot send: no message or no selected user')
+    
+    if (!newMessage.trim()) {
+      return
+    }
+    
+    // ИСПОЛЬЗУЕМ REF для гарантии что selectedUser не изменится
+    const currentSelectedUser = selectedUserRef.current
+    
+    if (!currentSelectedUser) {
+      console.error('❌ Cannot send: no selected user in ref')
+      alert('Ошибка: не выбран получатель сообщения')
       return
     }
 
     const messageText = newMessage.trim()
-    const targetUserId = selectedUser.id
+    const targetUserId = currentSelectedUser.id
     
-    if (!targetUserId) {
-      console.error('Selected user has no ID!', selectedUser)
-      alert('Ошибка: не выбран получатель')
+    // Проверка ID
+    if (!targetUserId || targetUserId === user.id) {
+      console.error('❌ Invalid target user:', { 
+        targetUserId, 
+        currentUserId: user.id, 
+        selectedUser: currentSelectedUser 
+      })
+      alert('Ошибка: неверный получатель сообщения')
       return
     }
     
-    console.log('Sending message:', {
-      from: user.id,
-      to: targetUserId,
-      text: messageText
+    // Дополнительная проверка что selectedUser в state совпадает с ref
+    if (selectedUser?.id !== targetUserId) {
+      console.warn('⚠️ Warning: selectedUser state differs from ref', {
+        stateId: selectedUser?.id,
+        refId: targetUserId
+      })
+      // Используем ref, так как он более надежен
+    }
+    
+    console.log('✅ Sending message:', {
+      from: { id: user.id, name: user.name || user.phone },
+      to: { id: targetUserId, name: currentSelectedUser.name || currentSelectedUser.phone },
+      text: messageText.substring(0, 50)
     })
     
     setNewMessage('')
@@ -175,14 +204,36 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
         receiverId: targetUserId
       })
       
-      console.log('Message sent successfully:', response.data)
+      const sentMessage = response.data.message
+      
+      // КРИТИЧЕСКАЯ ПРОВЕРКА: проверяем что сообщение отправлено правильному получателю
+      if (sentMessage.receiverId !== targetUserId) {
+        console.error('❌ CRITICAL ERROR: Message sent to wrong receiver!', {
+          expected: targetUserId,
+          expectedName: currentSelectedUser.name || currentSelectedUser.phone,
+          actual: sentMessage.receiverId,
+          actualName: sentMessage.receiver?.name || sentMessage.receiver?.phone,
+          message: sentMessage
+        })
+        alert(`ОШИБКА: Сообщение отправлено не тому получателю!\nОжидалось: ${currentSelectedUser.name || currentSelectedUser.phone}\nПолучено: ${sentMessage.receiver?.name || sentMessage.receiver?.phone}`)
+        setNewMessage(messageText) // Возвращаем текст
+        return
+      }
+      
+      console.log('✅ Message sent successfully to:', {
+        receiverId: sentMessage.receiverId,
+        receiverName: sentMessage.receiver?.name || sentMessage.receiver?.phone
+      })
       
       // Обновляем сообщения после отправки
       await loadMessages()
       setShowEmojiPicker(false)
     } catch (error: any) {
-      console.error('Error sending message:', error)
-      alert(`Ошибка отправки: ${error?.response?.data?.error || error?.message || 'Неизвестная ошибка'}`)
+      console.error('❌ Error sending message:', error)
+      const errorMsg = error?.response?.data?.error || error?.message || 'Неизвестная ошибка'
+      alert(`Ошибка отправки: ${errorMsg}`)
+      // Возвращаем текст сообщения обратно в поле ввода
+      setNewMessage(messageText)
     }
   }
 
@@ -201,9 +252,9 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   }
 
   return (
-    <div className="flex h-screen bg-[#e5ddd5] overflow-hidden relative">
+    <div className="flex h-screen bg-[#e5ddd5] overflow-hidden relative w-full">
       {/* Боковая панель с пользователями */}
-      <div className={`${showSidebar || (!selectedUser && typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex' : 'hidden'} md:flex w-full md:w-80 bg-white flex flex-col absolute md:relative z-40 h-full shadow-lg md:shadow-none`}>
+      <div className={`${showSidebar || (!selectedUser && typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex' : 'hidden'} md:flex w-full md:w-80 bg-white flex flex-col fixed md:relative z-40 h-full shadow-xl md:shadow-none inset-0 md:inset-auto`}>
         {/* Заголовок с профилем */}
         <div className="p-3 bg-[#075e54] text-white">
           <div className="flex items-center justify-between mb-3">
@@ -289,9 +340,11 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                     selectedUser?.id === u.id ? 'bg-[#f0f2f5]' : ''
                   }`}
                   onClick={() => {
+                    console.log('✅ User selected:', { id: u.id, name: u.name || u.phone })
                     setSelectedUser(u)
                     setShowSidebar(false) // Закрываем сайдбар на мобильных
                     setUserSearchQuery('') // Очищаем поиск после выбора
+                    setMessages([]) // Очищаем сообщения при смене пользователя
                   }}
                 >
                   <div className="flex items-center gap-3">
@@ -338,31 +391,36 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
       </div>
 
       {/* Область чата */}
-      <div className={`flex-1 flex flex-col ${!selectedUser ? 'hidden md:flex' : 'flex'} min-w-0`}>
+      <div className={`flex-1 flex flex-col ${!selectedUser ? 'hidden md:flex' : 'flex'} min-w-0 w-full`}>
         {selectedUser ? (
           <>
             {/* Заголовок чата */}
-            <div className="bg-[#075e54] text-white p-3 flex items-center gap-3">
+            <div className="bg-[#075e54] text-white p-2 md:p-3 flex items-center gap-2 md:gap-3">
               <button
-                onClick={() => setShowSidebar(true)}
-                className="md:hidden p-2 hover:bg-white hover:bg-opacity-10 rounded-full transition-colors"
+                onClick={() => {
+                  setShowSidebar(true)
+                  setSelectedUser(null) // Сбрасываем выбранного пользователя на мобильных
+                }}
+                className="md:hidden p-2 hover:bg-white hover:bg-opacity-10 rounded-full transition-colors flex-shrink-0"
                 aria-label="Меню"
               >
-                ☰
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
               </button>
-              <div className="w-10 h-10 rounded-full bg-white bg-opacity-20 flex items-center justify-center text-white font-semibold flex-shrink-0">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white bg-opacity-20 flex items-center justify-center text-white font-semibold flex-shrink-0">
                 {(selectedUser.name || selectedUser.phone).charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="font-semibold text-white truncate">
+                <h2 className="font-semibold text-white truncate text-sm md:text-base">
                   {selectedUser.name || selectedUser.phone}
                 </h2>
-                <p className="text-sm text-gray-200 truncate">{selectedUser.phone}</p>
+                <p className="text-xs md:text-sm text-gray-200 truncate">{selectedUser.phone}</p>
               </div>
             </div>
 
             {/* Сообщения */}
-            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-1 bg-[#e5ddd5] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJtIDAgMCBoIDQwIHYgNDAgaCAtNDAgeiIgZmlsbD0iI2U1ZGRkNSIvPjxwYXRoIGQ9Ik0gMCAwIEwgNDAgNDAgTSA0MCAwIEwgMCA0MCIgc3Ryb2tlPSIjZGRkZGRkIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] min-h-0">
+            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-1 bg-[#e5ddd5] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJtIDAgMCBoIDQwIHYgNDAgaCAtNDAgeiIgZmlsbD0iI2U1ZGRkNSIvPjxwYXRoIGQ9Ik0gMCAwIEwgNDAgNDAgTSA0MCAwIEwgMCA0MCIgc3Ryb2tlPSIjZGRkZGRkIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] min-h-0 pb-safe">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500 px-4">
                   <div className="text-center">
@@ -409,7 +467,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             </div>
 
             {/* Форма отправки сообщения */}
-            <form onSubmit={sendMessage} className="bg-[#f0f2f5] p-2 md:p-4 relative border-t border-gray-200">
+            <form onSubmit={sendMessage} className="bg-[#f0f2f5] p-2 md:p-4 relative border-t border-gray-200 safe-area-inset-bottom">
               <div className="flex gap-2 items-end">
                 <div className="relative flex-1 min-w-0">
                   <input
@@ -417,7 +475,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Введите сообщение"
+                    placeholder={selectedUser ? `Сообщение для ${selectedUser.name || selectedUser.phone}` : "Введите сообщение"}
                     className="w-full px-4 py-2.5 md:py-3 pr-12 border-0 rounded-full focus:ring-2 focus:ring-[#075e54] focus:outline-none text-gray-900 bg-white text-sm md:text-base"
                     style={{ color: '#111827' }}
                     onFocus={() => setShowEmojiPicker(false)}
@@ -429,7 +487,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                 <button
                   type="submit"
                   className="p-2.5 md:p-3 bg-[#075e54] text-white rounded-full hover:bg-[#064e47] active:bg-[#053d37] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px] md:min-w-[50px] flex-shrink-0"
-                  disabled={!newMessage.trim()}
+                  disabled={!newMessage.trim() || !selectedUser}
                   aria-label="Отправить"
                 >
                   <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -465,10 +523,16 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
       </div>
       
       {/* Overlay для мобильных */}
-      {showSidebar && (
+      {showSidebar && typeof window !== 'undefined' && window.innerWidth < 768 && (
         <div 
-          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
-          onClick={() => setShowSidebar(false)}
+          className="fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={() => {
+            setShowSidebar(false)
+            if (!selectedUser) {
+              // Если никто не выбран, возвращаемся к списку
+              setShowSidebar(true)
+            }
+          }}
         />
       )}
     </div>

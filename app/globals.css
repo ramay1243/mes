@@ -42,3 +42,20 @@ body {
   background: rgba(0, 0, 0, 0.3);
 }
 
+/* Мобильная адаптивность */
+@media (max-width: 768px) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Предотвращаем zoom при фокусе на input */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Safe area для мобильных устройств с вырезами */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
