@@ -65,7 +65,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
 
   // На мобильных показываем список чатов если никто не выбран
   useEffect(() => {
-    if (!selectedUser && users.length > 0 && window.innerWidth < 768) {
+    if (typeof window !== 'undefined' && !selectedUser && users.length > 0 && window.innerWidth < 768) {
       setShowSidebar(true)
     }
   }, [selectedUser, users])
@@ -75,24 +75,25 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   }, [messages])
 
   const loadMessages = async () => {
-    if (!selectedUser) return // Не загружаем сообщения если никто не выбран
+    if (!selectedUser) {
+      setMessages([])
+      return
+    }
     
     try {
       const params = `?receiverId=${selectedUser.id}`
       const response = await axios.get(`/api/messages${params}`)
-      // Фильтруем только сообщения между текущим пользователем и выбранным
-      const filteredMessages = response.data.messages.filter((msg: Message) => 
-        (msg.senderId === user.id && msg.receiverId === selectedUser.id) ||
-        (msg.senderId === selectedUser.id && msg.receiverId === user.id)
-      )
-      setMessages(filteredMessages)
+      setMessages(response.data.messages || [])
     } catch (error) {
       console.error('Error loading messages:', error)
+      setMessages([])
     }
   }
 
   const loadUsers = async () => {
     try {
+      // Если есть поиск - ищем всех пользователей
+      // Если нет поиска - показываем только тех, с кем есть переписка
       const params = userSearchQuery ? `?search=${encodeURIComponent(userSearchQuery)}` : ''
       const response = await axios.get(`/api/users${params}`)
       setUsers(response.data.users || [])
@@ -162,7 +163,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   return (
     <div className="flex h-screen bg-[#e5ddd5] overflow-hidden relative">
       {/* Боковая панель с пользователями */}
-      <div className={`${showSidebar ? 'flex' : 'hidden'} md:flex w-full md:w-80 bg-white flex flex-col absolute md:relative z-40 h-full shadow-lg md:shadow-none`}>
+      <div className={`${showSidebar || (!selectedUser && typeof window !== 'undefined' && window.innerWidth < 768) ? 'flex' : 'hidden'} md:flex w-full md:w-80 bg-white flex flex-col absolute md:relative z-40 h-full shadow-lg md:shadow-none`}>
         {/* Заголовок с профилем */}
         <div className="p-3 bg-[#075e54] text-white">
           <div className="flex items-center justify-between mb-3">
@@ -211,40 +212,62 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
               type="text"
               value={userSearchQuery}
               onChange={(e) => setUserSearchQuery(e.target.value)}
-              placeholder="Поиск или новый чат"
+              placeholder={userSearchQuery ? "Поиск..." : "Поиск пользователей"}
               className="w-full px-4 py-2 pl-10 border-0 rounded-lg focus:ring-2 focus:ring-white focus:outline-none text-sm text-gray-900 bg-white bg-opacity-90"
             />
             <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+            {userSearchQuery && (
+              <button
+                onClick={() => setUserSearchQuery('')}
+                className="absolute right-3 top-2 text-gray-400 hover:text-gray-600"
+                aria-label="Очистить поиск"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
 
         {/* Список чатов */}
         <div className="flex-1 overflow-y-auto bg-white">
           {filteredUsers.length > 0 ? (
-            filteredUsers.map((u) => (
-              <div
-                key={u.id}
-                className={`p-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-100 ${
-                  selectedUser?.id === u.id ? 'bg-[#f0f2f5]' : ''
-                }`}
-                onClick={() => {
-                  setSelectedUser(u)
-                  setShowSidebar(false) // Закрываем сайдбар на мобильных
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-[#075e54] flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
-                    {(u.name || u.phone).charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-800 truncate">
-                      {u.name || u.phone}
+            <>
+              {!userSearchQuery && (
+                <div className="p-3 text-xs text-gray-500 bg-gray-50 border-b border-gray-100">
+                  Чаты ({filteredUsers.length})
+                </div>
+              )}
+              {userSearchQuery && (
+                <div className="p-3 text-xs text-gray-500 bg-gray-50 border-b border-gray-100">
+                  Результаты поиска ({filteredUsers.length})
+                </div>
+              )}
+              {filteredUsers.map((u) => (
+                <div
+                  key={u.id}
+                  className={`p-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-100 ${
+                    selectedUser?.id === u.id ? 'bg-[#f0f2f5]' : ''
+                  }`}
+                  onClick={() => {
+                    setSelectedUser(u)
+                    setShowSidebar(false) // Закрываем сайдбар на мобильных
+                    setUserSearchQuery('') // Очищаем поиск после выбора
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-[#075e54] flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                      {(u.name || u.phone).charAt(0).toUpperCase()}
                     </div>
-                    <div className="text-sm text-gray-500 truncate">{u.phone}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-800 truncate">
+                        {u.name || u.phone}
+                      </div>
+                      <div className="text-sm text-gray-500 truncate">{u.phone}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </>
           ) : (
             <div className="p-4 text-center text-gray-500 text-sm">
               {userSearchQuery ? (
@@ -258,10 +281,14 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                   </button>
                 </div>
               ) : (
-                <div>
-                  <p className="mb-2">Нет других пользователей</p>
+                <div className="py-8">
+                  <div className="text-4xl mb-3">💬</div>
+                  <p className="mb-2 font-medium">Нет чатов</p>
+                  <p className="text-xs text-gray-400 mb-4">
+                    Начните общение с кем-то, и чат появится здесь
+                  </p>
                   <p className="text-xs text-gray-400">
-                    Попросите друзей зарегистрироваться!
+                    Используйте поиск, чтобы найти пользователей
                   </p>
                 </div>
               )}
@@ -295,13 +322,13 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             </div>
 
             {/* Сообщения */}
-            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-1 bg-[#e5ddd5] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJtIDAgMCBoIDQwIHYgNDAgaCAtNDAgeiIgZmlsbD0iI2U1ZGRkNSIvPjxwYXRoIGQ9Ik0gMCAwIEwgNDAgNDAgTSA0MCAwIEwgMCA0MCIgc3Ryb2tlPSIjZGRkZGRkIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')]">
+            <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-1 bg-[#e5ddd5] bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJtIDAgMCBoIDQwIHYgNDAgaCAtNDAgeiIgZmlsbD0iI2U1ZGRkNSIvPjxwYXRoIGQ9Ik0gMCAwIEwgNDAgNDAgTSA0MCAwIEwgMCA0MCIgc3Ryb2tlPSIjZGRkZGRkIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] min-h-0">
               {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="flex items-center justify-center h-full text-gray-500 px-4">
                   <div className="text-center">
                     <div className="text-4xl mb-2">💬</div>
-                    <p>Нет сообщений</p>
-                    <p className="text-sm mt-1">Начните общение!</p>
+                    <p className="text-base md:text-lg font-medium">Нет сообщений</p>
+                    <p className="text-sm mt-1 text-gray-400">Начните общение!</p>
                   </div>
                 </div>
               ) : (
@@ -310,7 +337,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                   return (
                     <div
                       key={message.id}
-                      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} items-end gap-1 md:gap-2 mb-1`}
+                      className={`flex ${isOwn ? 'justify-end' : 'justify-start'} items-end gap-1 md:gap-2 mb-1 px-1`}
                     >
                       {!isOwn && (
                         <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-[#075e54] flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
@@ -318,13 +345,13 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                         </div>
                       )}
                       <div
-                        className={`max-w-[75%] md:max-w-md px-3 py-1.5 md:px-4 md:py-2 rounded-lg shadow-sm ${
+                        className={`max-w-[80%] sm:max-w-[75%] md:max-w-md px-3 py-1.5 md:px-4 md:py-2 rounded-lg shadow-sm ${
                           isOwn
                             ? 'bg-[#dcf8c6] text-gray-800 rounded-br-none'
                             : 'bg-white text-gray-800 rounded-bl-none'
                         }`}
                       >
-                        <div className="break-words text-sm md:text-base leading-relaxed">{message.text}</div>
+                        <div className="break-words text-sm md:text-base leading-relaxed whitespace-pre-wrap">{message.text}</div>
                         <div className={`text-xs mt-0.5 ${isOwn ? 'text-gray-500' : 'text-gray-400'} text-right`}>
                           {formatTime(message.createdAt)}
                         </div>
@@ -342,16 +369,16 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             </div>
 
             {/* Форма отправки сообщения */}
-            <form onSubmit={sendMessage} className="bg-[#f0f2f5] p-2 md:p-4 relative">
+            <form onSubmit={sendMessage} className="bg-[#f0f2f5] p-2 md:p-4 relative border-t border-gray-200">
               <div className="flex gap-2 items-end">
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <input
                     ref={inputRef}
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Введите сообщение"
-                    className="w-full px-4 py-2 md:py-3 border-0 rounded-full focus:ring-2 focus:ring-[#075e54] focus:outline-none text-gray-900 bg-white text-sm md:text-base"
+                    className="w-full px-4 py-2.5 md:py-3 pr-12 border-0 rounded-full focus:ring-2 focus:ring-[#075e54] focus:outline-none text-gray-900 bg-white text-sm md:text-base"
                     style={{ color: '#111827' }}
                     onFocus={() => setShowEmojiPicker(false)}
                   />
@@ -361,7 +388,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                 </div>
                 <button
                   type="submit"
-                  className="p-2 md:p-3 bg-[#075e54] text-white rounded-full hover:bg-[#064e47] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px] md:min-w-[50px]"
+                  className="p-2.5 md:p-3 bg-[#075e54] text-white rounded-full hover:bg-[#064e47] active:bg-[#053d37] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px] md:min-w-[50px] flex-shrink-0"
                   disabled={!newMessage.trim()}
                   aria-label="Отправить"
                 >
@@ -374,20 +401,23 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-[#e5ddd5] min-h-screen md:min-h-0">
-            <div className="text-center text-gray-500 px-4">
+            <div className="text-center text-gray-500 px-4 max-w-sm">
               <div className="text-6xl mb-4">💬</div>
-              <p className="text-lg font-medium mb-2">Выберите чат для начала общения</p>
-              {users.length === 0 && (
-                <p className="text-sm text-gray-400 mb-4">
-                  Пока нет других пользователей.<br />
-                  Попросите друзей зарегистрироваться!
-                </p>
-              )}
+              <p className="text-lg font-medium mb-2">Выберите чат</p>
+              <p className="text-sm text-gray-400 mb-4">
+                {users.length === 0 
+                  ? 'Используйте поиск, чтобы найти пользователей и начать общение'
+                  : 'Выберите чат из списка или найдите пользователя через поиск'
+                }
+              </p>
               <button
-                onClick={() => setShowSidebar(true)}
-                className="md:hidden px-6 py-3 bg-[#075e54] text-white rounded-full font-medium hover:bg-[#064e47] transition-colors mt-4"
+                onClick={() => {
+                  setShowSidebar(true)
+                  inputRef.current?.focus()
+                }}
+                className="md:hidden px-6 py-3 bg-[#075e54] text-white rounded-full font-medium hover:bg-[#064e47] active:bg-[#053d37] transition-colors mt-4"
               >
-                {users.length > 0 ? 'Открыть список чатов' : 'Обновить'}
+                {users.length > 0 ? 'Открыть чаты' : 'Найти пользователей'}
               </button>
             </div>
           </div>
@@ -404,6 +434,13 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     </div>
   )
 }
+
+
+
+
+
+
+
 
 
 

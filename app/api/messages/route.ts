@@ -22,18 +22,16 @@ export async function GET(request: NextRequest) {
     
     const receiverId = request.nextUrl.searchParams.get('receiverId')
     
+    if (!receiverId) {
+      return NextResponse.json({ messages: [] })
+    }
+    
     const messages = await prisma.message.findMany({
       where: {
         OR: [
-          { senderId: user.id },
-          { receiverId: user.id }
-        ],
-        ...(receiverId ? {
-          OR: [
-            { senderId: user.id, receiverId },
-            { senderId: receiverId, receiverId: user.id }
-          ]
-        } : {})
+          { senderId: user.id, receiverId },
+          { senderId: receiverId, receiverId: user.id }
+        ]
       },
       include: {
         sender: {
