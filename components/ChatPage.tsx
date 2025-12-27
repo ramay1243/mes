@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
 import EmojiPicker from './EmojiPicker'
+import SwipeableChatItem from './SwipeableChatItem'
 
 interface User {
   id: string
@@ -242,6 +243,30 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     inputRef.current?.focus()
   }
 
+  const handleDeleteChat = async (userId: string) => {
+    if (!confirm('Удалить все сообщения с этим пользователем?')) {
+      return
+    }
+
+    try {
+      await axios.delete(`/api/chats/delete?userId=${userId}`)
+      
+      // Если удаляемый чат был выбран - сбрасываем выбор
+      if (selectedUser?.id === userId) {
+        setSelectedUser(null)
+        setMessages([])
+      }
+      
+      // Обновляем список пользователей
+      await loadUsers()
+      
+      console.log('✅ Chat deleted successfully')
+    } catch (error: any) {
+      console.error('Error deleting chat:', error)
+      alert(`Ошибка при удалении чата: ${error?.response?.data?.error || error?.message}`)
+    }
+  }
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -334,31 +359,36 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
                 </div>
               )}
               {filteredUsers.map((u) => (
-                <div
+                <SwipeableChatItem
                   key={u.id}
-                  className={`p-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-100 ${
-                    selectedUser?.id === u.id ? 'bg-[#f0f2f5]' : ''
-                  }`}
-                  onClick={() => {
-                    console.log('✅ User selected:', { id: u.id, name: u.name || u.phone })
-                    setSelectedUser(u)
-                    setShowSidebar(false) // Закрываем сайдбар на мобильных
-                    setUserSearchQuery('') // Очищаем поиск после выбора
-                    setMessages([]) // Очищаем сообщения при смене пользователя
-                  }}
+                  onDelete={() => handleDeleteChat(u.id)}
+                  disabled={userSearchQuery.length > 0} // Отключаем свайп во время поиска
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-[#075e54] flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
-                      {(u.name || u.phone).charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-800 truncate">
-                        {u.name || u.phone}
+                  <div
+                    className={`p-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-100 ${
+                      selectedUser?.id === u.id ? 'bg-[#f0f2f5]' : ''
+                    }`}
+                    onClick={() => {
+                      console.log('✅ User selected:', { id: u.id, name: u.name || u.phone })
+                      setSelectedUser(u)
+                      setShowSidebar(false) // Закрываем сайдбар на мобильных
+                      setUserSearchQuery('') // Очищаем поиск после выбора
+                      setMessages([]) // Очищаем сообщения при смене пользователя
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-[#075e54] flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                        {(u.name || u.phone).charAt(0).toUpperCase()}
                       </div>
-                      <div className="text-sm text-gray-500 truncate">{u.phone}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-800 truncate">
+                          {u.name || u.phone}
+                        </div>
+                        <div className="text-sm text-gray-500 truncate">{u.phone}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </SwipeableChatItem>
               ))}
             </>
           ) : (
