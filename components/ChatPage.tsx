@@ -49,7 +49,9 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   }, [selectedUser])
 
   useEffect(() => {
-    loadMessages()
+    if (selectedUser) {
+      loadMessages()
+    }
   }, [selectedUser])
 
   useEffect(() => {
@@ -60,6 +62,13 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   useEffect(() => {
     loadUsers()
   }, [])
+
+  // На мобильных показываем список чатов если никто не выбран
+  useEffect(() => {
+    if (!selectedUser && users.length > 0 && window.innerWidth < 768) {
+      setShowSidebar(true)
+    }
+  }, [selectedUser, users])
 
   useEffect(() => {
     scrollToBottom()
@@ -86,9 +95,10 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     try {
       const params = userSearchQuery ? `?search=${encodeURIComponent(userSearchQuery)}` : ''
       const response = await axios.get(`/api/users${params}`)
-      setUsers(response.data.users)
+      setUsers(response.data.users || [])
     } catch (error) {
       console.error('Error loading users:', error)
+      setUsers([]) // Устанавливаем пустой массив при ошибке
     }
   }
 
@@ -150,9 +160,9 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
   }
 
   return (
-    <div className="flex h-screen bg-[#e5ddd5] overflow-hidden">
+    <div className="flex h-screen bg-[#e5ddd5] overflow-hidden relative">
       {/* Боковая панель с пользователями */}
-      <div className={`${showSidebar ? 'flex' : 'hidden'} md:flex w-full md:w-80 bg-white flex flex-col absolute md:relative z-40 h-full`}>
+      <div className={`${showSidebar ? 'flex' : 'hidden'} md:flex w-full md:w-80 bg-white flex flex-col absolute md:relative z-40 h-full shadow-lg md:shadow-none`}>
         {/* Заголовок с профилем */}
         <div className="p-3 bg-[#075e54] text-white">
           <div className="flex items-center justify-between mb-3">
@@ -214,7 +224,7 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             filteredUsers.map((u) => (
               <div
                 key={u.id}
-                className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-100 ${
+                className={`p-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-100 ${
                   selectedUser?.id === u.id ? 'bg-[#f0f2f5]' : ''
                 }`}
                 onClick={() => {
@@ -237,14 +247,31 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             ))
           ) : (
             <div className="p-4 text-center text-gray-500 text-sm">
-              {userSearchQuery ? 'Пользователи не найдены' : 'Нет других пользователей'}
+              {userSearchQuery ? (
+                <div>
+                  <p className="mb-2">Пользователи не найдены</p>
+                  <button
+                    onClick={() => setUserSearchQuery('')}
+                    className="text-[#075e54] hover:underline"
+                  >
+                    Очистить поиск
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p className="mb-2">Нет других пользователей</p>
+                  <p className="text-xs text-gray-400">
+                    Попросите друзей зарегистрироваться!
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
       {/* Область чата */}
-      <div className={`flex-1 flex flex-col ${!selectedUser ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`flex-1 flex flex-col ${!selectedUser ? 'hidden md:flex' : 'flex'} min-w-0`}>
         {selectedUser ? (
           <>
             {/* Заголовок чата */}
@@ -346,15 +373,21 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
             </form>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-[#e5ddd5]">
-            <div className="text-center text-gray-500">
+          <div className="flex-1 flex items-center justify-center bg-[#e5ddd5] min-h-screen md:min-h-0">
+            <div className="text-center text-gray-500 px-4">
               <div className="text-6xl mb-4">💬</div>
-              <p className="text-lg font-medium mb-4">Выберите чат для начала общения</p>
+              <p className="text-lg font-medium mb-2">Выберите чат для начала общения</p>
+              {users.length === 0 && (
+                <p className="text-sm text-gray-400 mb-4">
+                  Пока нет других пользователей.<br />
+                  Попросите друзей зарегистрироваться!
+                </p>
+              )}
               <button
                 onClick={() => setShowSidebar(true)}
-                className="md:hidden px-6 py-3 bg-[#075e54] text-white rounded-full font-medium hover:bg-[#064e47] transition-colors"
+                className="md:hidden px-6 py-3 bg-[#075e54] text-white rounded-full font-medium hover:bg-[#064e47] transition-colors mt-4"
               >
-                Открыть список чатов
+                {users.length > 0 ? 'Открыть список чатов' : 'Обновить'}
               </button>
             </div>
           </div>
@@ -371,4 +404,8 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     </div>
   )
 }
+
+
+
+
 

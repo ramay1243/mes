@@ -36,8 +36,11 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Загрузка...</div>
+      <div className="flex items-center justify-center min-h-screen bg-[#e5ddd5]">
+        <div className="text-center">
+          <div className="text-4xl mb-4 animate-pulse">💬</div>
+          <div className="text-xl text-gray-600">Загрузка...</div>
+        </div>
       </div>
     )
   }
