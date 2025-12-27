@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { put } from '@vercel/blob'
+import { getUserFromToken } from '@/lib/auth'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
-import { getUserFromToken } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,26 +48,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Создаем директорию для загрузок если её нет
-    const uploadsDir = join(process.cwd(), 'public', 'uploads')
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true })
-    }
-
     // Генерируем уникальное имя файла
     const timestamp = Date.now()
     const randomStr = Math.random().toString(36).substring(2, 15)
-    const fileExtension = file.name.split('.').pop()
-    const fileName = `${timestamp}-${randomStr}.${fileExtension}`
-    const filePath = join(uploadsDir, fileName)
+    const fileExtension = file.name.split('.').pop() || 'bin'
+    const fileName = `uploads/${timestamp}-${randomStr}.${fileExtension}`
 
-    // Сохраняем файл
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
+    let fileUrl: string
 
-    // Возвращаем URL файла
-    const fileUrl = `/uploads/${fileName}`
+    // Проверяем, есть ли токен для Vercel Blob (продакшен)
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      // Используем Vercel Blob Storage
+      const blob = await put(fileName, file, {
+        access: 'public',
+        contentType: file.type,
+      })
+      fileUrl = blob.url
+    } else {
+      // Локальная разработка - сохраняем в public/uploads
+      const uploadsDir = join(process.cwd(), 'public', 'uploads')
+      if (!existsSync(uploadsDir)) {
+        await mkdir(uploadsDir, { recursive: true })
+      }
+
+      const localFileName = `${timestamp}-${randomStr}.${fileExtension}`
+      const filePath = join(uploadsDir, localFileName)
+
+      const bytes = await file.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      await writeFile(filePath, buffer)
+
+      fileUrl = `/uploads/${localFileName}`
+    }
 
     return NextResponse.json({
       url: fileUrl,
@@ -82,4 +95,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
