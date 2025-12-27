@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface VideoMessageProps {
   src: string
@@ -10,6 +10,15 @@ interface VideoMessageProps {
 export default function VideoMessage({ src, isOwn = false }: VideoMessageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  
+  // Нормализуем URL (если относительный, делаем абсолютным)
+  const videoUrl = src?.startsWith('http') ? src : (src?.startsWith('/') ? src : `/${src}`)
+  
+  useEffect(() => {
+    if (src) {
+      console.log('🎥 VideoMessage src:', src, 'normalized:', videoUrl)
+    }
+  }, [src, videoUrl])
 
   if (hasError) {
     return (
@@ -30,7 +39,7 @@ export default function VideoMessage({ src, isOwn = false }: VideoMessageProps) 
         </div>
       )}
       <video
-        src={src}
+        src={videoUrl}
         controls
         className="w-auto h-auto rounded-lg"
         style={{

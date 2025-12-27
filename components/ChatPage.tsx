@@ -17,7 +17,7 @@ interface User {
 
 interface Message {
   id: string
-  text: string
+  text: string | null
   senderId: string
   receiverId: string | null
   mediaUrl?: string | null
@@ -382,16 +382,18 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
       })
 
       const { url, type } = uploadResponse.data
-
-      // Отправляем сообщение с медиа
-      const messageText = newMessage.trim() || (isImage ? '📷 Фото' : '🎥 Видео')
       
-      await axios.post('/api/messages', {
-        text: messageText,
+      console.log('📤 Uploaded file:', { url, type, fileSize: file.size })
+
+      // Отправляем сообщение с медиа (без текста, если пользователь не ввел его)
+      const messageResponse = await axios.post('/api/messages', {
+        text: newMessage.trim() || undefined, // undefined если пусто
         receiverId: selectedUser.id,
         mediaUrl: url,
         mediaType: type
       })
+      
+      console.log('✅ Message sent with media:', messageResponse.data.message)
 
       setNewMessage('')
       await loadMessages()

@@ -4,10 +4,13 @@ import { getUserFromToken } from '@/lib/auth'
 import { z } from 'zod'
 
 const messageSchema = z.object({
-  text: z.string().min(1, 'Сообщение не может быть пустым'),
+  text: z.string().optional(),
   receiverId: z.string(),
   mediaUrl: z.string().optional(),
   mediaType: z.enum(['image', 'video']).optional()
+}).refine(data => data.text || data.mediaUrl, {
+  message: "Сообщение не может быть пустым",
+  path: ["text"]
 })
 
 export async function GET(request: NextRequest) {
@@ -119,12 +122,14 @@ export async function POST(request: NextRequest) {
       senderPhone: user.phone,
       receiverId: receiverId,
       receiverPhone: receiver.phone,
-      text: text.substring(0, 50)
+      text: text?.substring(0, 50) || '(без текста)',
+      mediaUrl: mediaUrl ? 'есть' : 'нет',
+      mediaType: mediaType || 'нет'
     })
     
     const message = await prisma.message.create({
       data: {
-        text,
+        text: text || null,
         senderId: user.id,
         receiverId: receiverId,
         mediaUrl: mediaUrl || null,

@@ -15,6 +15,15 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
   const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Нормализуем URL (если относительный, делаем абсолютным)
+  const imageUrl = src?.startsWith('http') ? src : (src?.startsWith('/') ? src : `/${src}`)
+  
+  useEffect(() => {
+    if (src) {
+      console.log('🖼️ ImageMessage src:', src, 'normalized:', imageUrl)
+    }
+  }, [src, imageUrl])
 
   // Проверяем, загружено ли изображение уже (из кэша) и устанавливаем таймаут
   useEffect(() => {
@@ -128,7 +137,7 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
         )}
         <img
           ref={imgRef}
-          src={src}
+          src={imageUrl}
           alt={alt}
           onLoad={handleImageLoad}
           onError={handleImageError}
@@ -175,7 +184,7 @@ export default function ImageMessage({ src, alt = 'Фото', isOwn = false }: I
             </svg>
           </button>
           <img
-            src={src}
+            src={imageUrl}
             alt={alt}
             className="max-w-full max-h-full object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
