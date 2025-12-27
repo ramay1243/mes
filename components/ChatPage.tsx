@@ -82,8 +82,26 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
     
     try {
       const params = `?receiverId=${selectedUser.id}`
+      console.log('Loading messages for chat with:', {
+        currentUser: user.id,
+        selectedUser: selectedUser.id,
+        params
+      })
+      
       const response = await axios.get(`/api/messages${params}`)
-      setMessages(response.data.messages || [])
+      const loadedMessages = response.data.messages || []
+      
+      console.log('Loaded messages:', {
+        count: loadedMessages.length,
+        messages: loadedMessages.map((m: Message) => ({
+          id: m.id,
+          from: m.senderId,
+          to: m.receiverId,
+          text: m.text.substring(0, 20)
+        }))
+      })
+      
+      setMessages(loadedMessages)
     } catch (error) {
       console.error('Error loading messages:', error)
       setMessages([])
@@ -129,20 +147,42 @@ export default function ChatPage({ user, onLogout }: ChatPageProps) {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newMessage.trim() || !selectedUser) return
+    if (!newMessage.trim() || !selectedUser) {
+      console.error('Cannot send: no message or no selected user')
+      return
+    }
 
     const messageText = newMessage.trim()
+    const targetUserId = selectedUser.id
+    
+    if (!targetUserId) {
+      console.error('Selected user has no ID!', selectedUser)
+      alert('Ошибка: не выбран получатель')
+      return
+    }
+    
+    console.log('Sending message:', {
+      from: user.id,
+      to: targetUserId,
+      text: messageText
+    })
+    
     setNewMessage('')
 
     try {
-      await axios.post('/api/messages', {
+      const response = await axios.post('/api/messages', {
         text: messageText,
-        receiverId: selectedUser.id
+        receiverId: targetUserId
       })
-      loadMessages()
+      
+      console.log('Message sent successfully:', response.data)
+      
+      // Обновляем сообщения после отправки
+      await loadMessages()
       setShowEmojiPicker(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error)
+      alert(`Ошибка отправки: ${error?.response?.data?.error || error?.message || 'Неизвестная ошибка'}`)
     }
   }
 

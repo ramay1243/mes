@@ -26,10 +26,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ messages: [] })
     }
     
+    // Получаем сообщения между текущим пользователем и выбранным получателем
+    // Сообщение должно быть: либо я отправил получателю, либо получатель отправил мне
     const messages = await prisma.message.findMany({
       where: {
         OR: [
-          { senderId: user.id, receiverId },
+          // Я отправил сообщение получателю
+          { senderId: user.id, receiverId: receiverId },
+          // Получатель отправил сообщение мне
           { senderId: receiverId, receiverId: user.id }
         ]
       },
@@ -80,11 +84,31 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { text, receiverId } = messageSchema.parse(body)
     
+    // Проверяем, что receiverId указан
+    if (!receiverId) {
+      return NextResponse.json(
+        { error: 'Не указан получатель сообщения' },
+        { status: 400 }
+      )
+    }
+    
+    // Проверяем, что получатель существует
+    const receiver = await prisma.user.findUnique({
+      where: { id: receiverId }
+    })
+    
+    if (!receiver) {
+      return NextResponse.json(
+        { error: 'Получатель не найден' },
+        { status: 404 }
+      )
+    }
+    
     const message = await prisma.message.create({
       data: {
         text,
         senderId: user.id,
-        receiverId: receiverId || null
+        receiverId: receiverId
       },
       include: {
         sender: {
